@@ -1,11 +1,16 @@
 import { Action, ActionPanel, Clipboard, Form, Toast, showToast } from "@raycast/api";
 import { useForm } from "@raycast/utils";
+import { createSnippet } from "./snippets/create-snippet";
+import type { EscapeMode, OutputMode } from "./snippets/types";
 
 interface SnippetFormValues {
-	title: string;
-	prefix: string;
 	code: string;
-};
+	description: string;
+	literal: boolean;
+	outputMode: string;
+	prefix: string;
+	title: string;
+}
 
 /**
  * Generate a VS Code snippet that can be pasted into a snippet file from a
@@ -14,11 +19,21 @@ interface SnippetFormValues {
 export default function Command() {
 	const { handleSubmit, itemProps } = useForm<SnippetFormValues>({
 		async onSubmit(formValues) {
-			if (typeof formValues !== "object") {
+			const mode: EscapeMode = formValues.literal ? "literal" : "snippet-syntax";
+			const outputMode = formValues.outputMode as OutputMode;
+
+			const snippet = createSnippet({
+				code: formValues.code,
+				description: formValues.description,
+				mode,
+				outputMode,
+				prefix: formValues.prefix,
+				title: formValues.title,
+			});
+
+			if (!snippet) {
 				return;
 			}
-
-			const snippet = generateSnippet(formValues.title, formValues.prefix, formValues.code);
 
 			await Clipboard.copy(snippet);
 
@@ -42,63 +57,6 @@ export default function Command() {
 		},
 	});
 
-	/**
-	 * Generate our snippet from the provided form values, and copy the result
-	 * to the clipboard.
-	 *
-	 * @param  {string}  title
-	 *     The title of the snippet.
-	 * @param  {string}  prefix
-	 *     The prefix for the snippet.
-	 * @param  {string}  code
-	 *     The code of the snippet.
-	 */
-	function generateSnippet(title: string, prefix: string, code: string) {
-		if (!isNonEmptyString(code)) {
-			return "";
-		}
-
-		if (!isNonEmptyString(title)) {
-			title = "";
-		}
-
-		if (!isNonEmptyString(prefix)) {
-			prefix = "";
-		}
-
-		title = title.trim();
-
-		// The format of prefixes depends on whether there is one or more than
-		// one.
-		const prefixList = prefix.split(",").map(prefix => prefix.trim());
-
-		prefix = prefixList.length > 1 ? `[${prefixList.map(prefix => `"${prefix}"`).join(", ")}]` : `"${prefixList[0]}"`;
-
-		// Escape relevant characters in our code snippet.
-		let body = code.replace(/"/g, "\\\"");
-		body = body.replace(/\t/g, "\\t");
-		body = body.split("\n").map(line => `\t\t"${line}",`).join("\n");
-
-		return [
-			`"${title}": {`,
-			`	"prefix": ${prefix},`,
-			"	\"body\": [",
-			body,
-			"	],",
-			"},",
-		].join("\n");
-	}
-
-	/**
-	 * Determine if a given variable is a string, and non-empty.
-	 *
-	 * @param  {mixed}  variable
-	 *     The variable to test.
-	 */
-	function isNonEmptyString(variable: unknown): variable is string {
-		return typeof variable === "string" && variable !== "";
-	}
-
 	return (
 		<Form
 			actions={
@@ -110,8 +68,15 @@ export default function Command() {
 			<Form.Description text="Enter your code snippet to convert it." />
 			<Form.TextField title="Title" {...itemProps.title} />
 			<Form.TextField title="Prefix" info="For multiple prefixes, please comma separate them." {...itemProps.prefix} />
+			<Form.TextField title="Description" info="Optional. Shown in VS Code's IntelliSense detail panel when browsing snippets." {...itemProps.description} />
 			<Form.Separator />
 			<Form.TextArea title="Code" {...itemProps.code} />
+			<Form.Checkbox label="Literal code (escape $ and })" title="Mode" {...itemProps.literal} />
+			<Form.Dropdown title="Output" info="Snippet entry is JSONC-compatible, ready to paste into an existing file. Snippet object is strict JSON with no trailing commas. Snippet file is a complete, standalone .code-snippets file." {...itemProps.outputMode}>
+				<Form.Dropdown.Item value="snippet-entry" title="Snippet entry" />
+				<Form.Dropdown.Item value="snippet-object" title="Snippet object (strict JSON)" />
+				<Form.Dropdown.Item value="snippet-file" title="Snippet file" />
+			</Form.Dropdown>
 		</Form>
 	);
 }
