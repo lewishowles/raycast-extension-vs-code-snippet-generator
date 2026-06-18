@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escapeBody } from "./escape-body";
+import { escapeBody, prepareBody } from "./escape-body";
 
 describe("escapeBody", () => {
 	describe("Line splitting", () => {
@@ -81,5 +81,40 @@ describe("escapeBody", () => {
 			const [line] = escapeBody("C:\\path", "literal");
 			expect(line).toBe("C:\\\\path");
 		});
+	});
+});
+
+describe("prepareBody", () => {
+	it("splits lines and returns raw strings", () => {
+		expect(prepareBody("a\nb", "snippet-syntax")).toEqual(["a", "b"]);
+	});
+
+	it("strips trailing empty lines", () => {
+		expect(prepareBody("a\n\n", "snippet-syntax")).toEqual(["a"]);
+	});
+
+	it("preserves dollar signs in snippet-syntax mode", () => {
+		const [line] = prepareBody("$1", "snippet-syntax");
+		expect(line).toBe("$1");
+	});
+
+	it("preserves closing braces in snippet-syntax mode", () => {
+		const [line] = prepareBody("${1:name}", "snippet-syntax");
+		expect(line).toBe("${1:name}");
+	});
+
+	it("escapes dollar signs in literal mode", () => {
+		const [line] = prepareBody("$1", "literal");
+		expect(line).toBe("\\$1");
+	});
+
+	it("escapes closing braces in literal mode", () => {
+		const [line] = prepareBody("}", "literal");
+		expect(line).toBe("\\}");
+	});
+
+	it("does not apply JSON string escaping — backslash stays single", () => {
+		const [line] = prepareBody("C:\\path", "snippet-syntax");
+		expect(line).toBe("C:\\path");
 	});
 });

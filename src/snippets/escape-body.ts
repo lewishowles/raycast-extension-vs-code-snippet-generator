@@ -4,38 +4,34 @@ import type { EscapeMode } from "./types";
 const lineEndingPattern = /\r\n|\r|\n/;
 
 /**
- * Split `code` into lines, apply JSON-string escaping to each, and return the
- * escaped lines ready to embed in a VS Code snippet body array.
+ * Split `code` into lines, apply VS Code metacharacter escaping where needed,
+ * and return the raw string values ready for object serialisation.
  *
- * In `snippet-syntax` mode, `$` and `}` are left intact so VS Code placeholder
- * syntax survives. In `literal` mode, they are escaped so the output is plain
- * text.
- *
- * Trailing empty lines are stripped to avoid a blank line at the end of every
- * inserted snippet.
- *
- * @param  {string}      code
- *     Raw source code from the form field.
- * @param  {EscapeMode}  mode
- *     Whether to preserve or escape VS Code snippet metacharacters.
+ * In `literal` mode, `$` and `}` are escaped with a leading backslash so VS
+ * Code treats them as plain characters. In `snippet-syntax` mode they are left
+ * intact. Trailing empty lines are stripped.
  */
-export function escapeBody(code: string, mode: EscapeMode): string[] {
+export function prepareBody(code: string, mode: EscapeMode): string[] {
 	const lines = code.split(lineEndingPattern);
 
 	while (lines.length > 0 && lines[lines.length - 1] === "") {
 		lines.pop();
 	}
 
-	return lines.map(line => {
-		if (mode === "literal") {
-			// Escape before JSON.stringify so the resulting backslash is itself
-			// JSON-escaped, giving VS Code the \$ or \} it needs to treat these
-			// as plain characters.
-			line = line.replace(/\$/g, "\\$").replace(/}/g, "\\}");
-		}
+	if (mode === "literal") {
+		return lines.map(line => line.replace(/\$/g, "\\$").replace(/}/g, "\\}"));
+	}
 
-		// JSON.stringify handles \, ", and all control characters (tab, CR, LF).
-		// Slice removes the surrounding quotes — callers wrap the content themselves.
-		return JSON.stringify(line).slice(1, -1);
-	});
+	return lines;
+}
+
+/**
+ * Split `code` into lines, apply JSON-string escaping to each, and return the
+ * escaped lines ready to embed manually in a VS Code snippet body array string.
+ *
+ * Builds on `prepareBody` then applies `JSON.stringify` escaping and strips the
+ * surrounding quotes so callers can wrap the content themselves.
+ */
+export function escapeBody(code: string, mode: EscapeMode): string[] {
+	return prepareBody(code, mode).map(line => JSON.stringify(line).slice(1, -1));
 }
