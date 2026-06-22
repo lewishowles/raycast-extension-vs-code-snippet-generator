@@ -1,7 +1,7 @@
 {
 	"$schema": "https://www.raycast.com/schemas/extension.json",
 	"name": "vs-code-snippet-generator",
-	"description": "This tool aims to simplify the process of converting a block of code into something that can be used in a VS Code snippet file, which is often a laborious process.",
+	"description": "Convert a block of code into a correctly-escaped VS Code snippet, then copy or insert it directly into a snippet file.",
 	"license": "MIT",
 	"author": "lewishowles",
 	"scripts": {
